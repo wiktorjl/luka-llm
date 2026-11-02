@@ -1,5 +1,7 @@
 # Tiny LLM — Preamble (tools path)
 
+*Download pre-trained model from [here](https://huggingface.co/xseedo).*
+
 Train a ~30M-parameter language model from random weights with Hugging Face tools, then fine-tune it
 twice: closed-book Q&A (answers from memory) and open-book Q&A (answers from a fact card).
 The full guide, with explanations and expected output for every step, is the "Tiny LLM — Preamble" doc.
