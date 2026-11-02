@@ -135,6 +135,8 @@ def main():
     ap.add_argument("--hf-out", help="also save Hugging Face datasets here (preamble path)")
     ap.add_argument("--hf-user", help="also push them to the Hub as private repos")
     ap.add_argument("--seed", type=int, default=1337)
+    ap.add_argument("--prefix", default="tinyllm-countries",
+                    help="name prefix for repos and folders (tinyllm-countries keeps these apart from the TinyStories ones)")
     args = ap.parse_args()
     rng = random.Random(args.seed)
 
@@ -172,9 +174,9 @@ def main():
         for kind in ("closed", "open"):
             dd = DatasetDict({s: Dataset.from_list(files[f"{kind}_{s}"]) for s in ("train", "test")})
             if args.hf_out:
-                dd.save_to_disk(os.path.join(args.hf_out, f"tinyllm-{kind}"))
+                dd.save_to_disk(os.path.join(args.hf_out, f"{args.prefix}-{kind}"))
             if args.hf_user:
-                dd.push_to_hub(f"{args.hf_user}/tinyllm-{kind}", private=True)
+                dd.push_to_hub(f"{args.hf_user}/{args.prefix}-{kind}", private=True)
         print("saved Hugging Face datasets" + (f", pushed to {args.hf_user}" if args.hf_user else ""))
 
 

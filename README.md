@@ -6,12 +6,35 @@ Train a ~30M-parameter language model from random weights with Hugging Face tool
 twice: closed-book Q&A (answers from memory) and open-book Q&A (answers from a fact card).
 The full guide, with explanations and expected output for every step, is the "Tiny LLM — Preamble" doc.
 
+## Country-only variant (this branch)
+
+Pretrains on the country snippets alone (no TinyStories): ~24M tokens, ~740 steps. The model only
+knows countries: ask it about a capital, currency, language or continent. Everything is named
+`tinyllm-countries-*` (Hub repos, `data/hf/` folders, `out/tinyllm-countries/`), so nothing here
+overwrites the TinyStories models; `--prefix` on each script changes the name. It reuses
+`data/tokenizer.json` from step 4 below, so the SFT data and eval suite stay compatible.
+
+```bash
+python src/build_mix.py --countries data/countries_prose.txt --out-dir data/countries/
+python src/export_for_trl.py --tokenizer data/tokenizer.json \
+  --train data/countries/train_mix.txt --val data/countries/val_mix.txt --out-dir data/hf --hf-user NAME
+python src/build_sft_data.py --countries data/countries_clean.jsonl --out-dir data/countries/sft \
+  --hf-out data/hf --hf-user NAME
+hf jobs uv run --flavor a100-large --timeout 30m --secrets HF_TOKEN src/train.py --stage pretrain --hf-user NAME
+hf jobs uv run --flavor a100-large --timeout 30m --secrets HF_TOKEN src/train.py --stage closed --hf-user NAME
+python src/ask.py --model NAME/tinyllm-countries-closed "What is the currency of Japan?"
+python src/eval.py --model NAME/tinyllm-countries-closed --data NAME/tinyllm-countries-closed --split test
+```
+
+The closed-book Q&A holds out 19 countries for the test. For a final model that has seen Q&A for
+every country, rebuild the SFT data with `--holdout 0` (and evaluate on the earlier split first).
+
 ## Files
 
 | File | What it does |
 | --- | --- |
 | `src/build_country_data.py` | countries.json → cleaned facts + 5% country prose for pretraining |
-| `src/build_mix.py` | clean, dedupe, shuffle TinyStories + country prose → train/val text |
+| `src/build_mix.py` | clean, dedupe, shuffle TinyStories + country prose → train/val text (no `--stories`: country only) |
 | `src/train_tokenizer.py` | 8,192-token byte-level BPE with special tokens reserved |
 | `src/export_for_trl.py` | tokenizer + text → Hugging Face datasets (optionally pushed to the Hub) |
 | `src/build_sft_data.py` | closed-book Q&A and open-book fact cards (chapters 2–3) |
@@ -19,8 +42,14 @@ The full guide, with explanations and expected output for every step, is the "Ti
 | `src/eval.py` | exact-match accuracy on a Q&A split |
 | `src/demo.py` | demo prompts across the three models; `--progression` for chapter 1 |
 | `src/app.py` | Gradio web demo |
+| `src/ask.py` | ask the closed-book model a question (one-off or interactive) |
+| `src/build_eval_suite.py` | frozen five-tier open-book eval suite (`eval.py --suite`) |
 
 ## Commands, in order
+
+These are the original TinyStories steps. On this branch the scripts default to `--prefix tinyllm-countries`,
+so add `--prefix tinyllm` to `export_for_trl.py`, `build_sft_data.py`, `train.py`, `demo.py` and `app.py`
+(and use `--local out/tinyllm` for local models) to rebuild the TinyStories models without mixing the two.
 
 Replace `NAME` with your Hugging Face username. Each block is safe to paste into zsh.
 

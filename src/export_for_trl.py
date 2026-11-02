@@ -5,7 +5,7 @@ Turns the Plan v1 artifacts into what transformers/TRL load by name:
   train_mix.txt, val_mix.txt -> a dataset with one {"text": document} row per document
 
 Saves both under --out-dir. With --hf-user, also pushes them as private Hub repos
-<user>/tinyllm-tokenizer and <user>/tinyllm-pretrain (run `hf auth login` first).
+<user>/<prefix>-tokenizer and <user>/<prefix>-pretrain (run `hf auth login` first).
 
 Usage:
   python export_for_trl.py --tokenizer data/tokenizer.json \
@@ -57,10 +57,12 @@ def main():
     ap.add_argument("--val", required=True)
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--hf-user", help="also push to the Hub as private repos under this account")
+    ap.add_argument("--prefix", default="tinyllm-countries",
+                    help="name prefix for repos and folders (tinyllm-countries keeps these apart from the TinyStories ones)")
     args = ap.parse_args()
 
     tok = build_tokenizer(args.tokenizer)
-    tok_dir = os.path.join(args.out_dir, "tinyllm-tokenizer")
+    tok_dir = os.path.join(args.out_dir, f"{args.prefix}-tokenizer")
     tok.save_pretrained(tok_dir)
     print(f"tokenizer: {len(tok)} tokens, eos={tok.eos_token_id}, pad={tok.pad_token_id} -> {tok_dir}")
 
@@ -68,14 +70,14 @@ def main():
         "train": Dataset.from_generator(gen, gen_kwargs={"path": args.train}),
         "validation": Dataset.from_generator(gen, gen_kwargs={"path": args.val}),
     })
-    ds_dir = os.path.join(args.out_dir, "tinyllm-pretrain")
+    ds_dir = os.path.join(args.out_dir, f"{args.prefix}-pretrain")
     ds.save_to_disk(ds_dir)
     print(f"dataset: {ds['train'].num_rows:,} train / {ds['validation'].num_rows:,} validation rows -> {ds_dir}")
 
     if args.hf_user:
-        tok.push_to_hub(f"{args.hf_user}/tinyllm-tokenizer", private=True)
-        ds.push_to_hub(f"{args.hf_user}/tinyllm-pretrain", private=True)
-        print(f"pushed {args.hf_user}/tinyllm-tokenizer and {args.hf_user}/tinyllm-pretrain")
+        tok.push_to_hub(f"{args.hf_user}/{args.prefix}-tokenizer", private=True)
+        ds.push_to_hub(f"{args.hf_user}/{args.prefix}-pretrain", private=True)
+        print(f"pushed {args.hf_user}/{args.prefix}-tokenizer and {args.hf_user}/{args.prefix}-pretrain")
 
 
 if __name__ == "__main__":

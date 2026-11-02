@@ -6,11 +6,16 @@ document, removes duplicate stories, shuffles at the document level, and writes:
   train_mix.txt   stories + country snippets, shuffled, <|endoftext|>-separated
   val_mix.txt     TinyStories' own validation stories + the same share of country snippets
 
+Without --stories (country-only models), the mix is just the country snippets, with 1% held out
+for validation. The snippets repeat the same facts, so val loss measures how well the facts were
+memorized rather than generalization.
+
 Usage:
   python build_mix.py \
       --stories data/tinystories/TinyStoriesV2-GPT4-train.txt \
       --val-stories data/tinystories/TinyStoriesV2-GPT4-valid.txt \
       --countries data/countries_prose.txt --out-dir data/
+  python build_mix.py --countries data/countries_prose.txt --out-dir data/countries/   # country-only
 
 Needs: pip install ftfy. Measured peak RAM is ~1.1x the stories file plus ~0.2 GB
 (~3 GB for the V2 train file); runtime ~1-3 minutes.
@@ -89,7 +94,7 @@ def mb(docs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stories", required=True)
+    ap.add_argument("--stories", help="TinyStories train file; leave out for a country-only mix")
     ap.add_argument("--val-stories", help="TinyStories valid file; without it, 1%% of train is held out")
     ap.add_argument("--countries", required=True, help="countries_prose.txt from step 2")
     ap.add_argument("--out-dir", required=True)
@@ -98,8 +103,8 @@ def main():
     rng = random.Random(args.seed)
 
     stats = {"ftfy_fixed": 0, "dropped_short": 0, "dropped_duplicate": 0}
-    stories = load(args.stories, stats, dedupe=True)
-    if args.val_stories:
+    stories = load(args.stories, stats, dedupe=True) if args.stories else []
+    if args.val_stories and args.stories:
         train_set = set(stories)
         val_all = load(args.val_stories, stats, dedupe=True)
         val_stories = [d for d in val_all if d not in train_set]  # no test leaking into training
@@ -113,7 +118,8 @@ def main():
     # Country snippets repeat facts on purpose, so no dedupe. Give val the same country share as train.
     countries = load(args.countries, stats, dedupe=False)
     rng.shuffle(countries)
-    n_val_c = round(len(countries) * len(val_stories) / max(len(stories), 1))
+    val_share = len(val_stories) / len(stories) if stories else 0.01
+    n_val_c = round(len(countries) * val_share)
     val_c, train_c = countries[:n_val_c], countries[n_val_c:]
 
     train, val = stories + train_c, val_stories + val_c

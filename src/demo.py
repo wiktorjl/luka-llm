@@ -2,8 +2,8 @@
 
 Usage:
   python src/demo.py --hf-user NAME                 # all demo prompts x all three models
-  python src/demo.py --local out                    # same, with models trained locally
-  python src/demo.py --hf-user NAME --progression   # "Once upon a time" from random weights to the final model
+  python src/demo.py --local out/tinyllm-countries  # same, with models trained locally
+  python src/demo.py --hf-user NAME --progression   # a fact completion from random weights to the final model
 """
 
 import argparse
@@ -14,9 +14,11 @@ import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 DEMOS = [
-    ("1  story",                 "Once upon a time"),
     ("1  fact completion",       "The capital of Poland is"),
+    ("1  currency completion",   "In Japan, people pay with the"),
     ("2  trained question",      "<|q|> What is the capital of Poland?<|a|>"),
+    ("2  currency question",     "<|q|> What is the currency of Poland?<|a|>"),
+    ("2  language question",     "<|q|> What language do people speak in Poland?<|a|>"),
     ("2  held-out country",      "<|q|> What is the capital of South Korea?<|a|>"),
     ("2  country that isn't real", "<|q|> What is the capital of Zorbania?<|a|>"),
     ("3  answer from the card",  "<|ctx|> Zorbania is a country in Europe. The capital of Zorbania is Plinktown. "
@@ -24,6 +26,9 @@ DEMOS = [
     ("3  card beats memory",     "<|ctx|> Poland is a country in Europe. The capital of Poland is Kraków."
                                  "<|q|> What is the capital of Poland?<|a|>"),
 ]
+
+
+PROGRESSION_PROMPT = "The capital of Poland is"
 
 
 def generate(model, tok, prompt, max_new_tokens=40, sample=False):
@@ -71,19 +76,20 @@ def progression(base, hub):
         torch.manual_seed(0)
         model = (AutoModelForCausalLM.from_config(AutoConfig.from_pretrained(base)) if src is None
                  else AutoModelForCausalLM.from_pretrained(**src)).eval()
-        print(f"\n[{title}]\n  Once upon a time {generate(model, tok, 'Once upon a time', 50, sample=True)}")
+        print(f"\n[{title}]\n  {PROGRESSION_PROMPT} {generate(model, tok, PROGRESSION_PROMPT, 30, sample=True)}")
 
 
 def main():
     ap = argparse.ArgumentParser()
     g = ap.add_mutually_exclusive_group(required=True)
-    g.add_argument("--hf-user", help="load NAME/tinyllm-base, -closed, -open from the Hub")
-    g.add_argument("--local", help="folder holding base/, closed/, open/ (out)")
+    g.add_argument("--hf-user", help="load NAME/PREFIX-base, -closed, -open from the Hub")
+    g.add_argument("--local", help="folder holding base/, closed/, open/ (out/tinyllm-countries)")
     ap.add_argument("--progression", action="store_true", help="chapter 1 learning curve from checkpoints")
+    ap.add_argument("--prefix", default="tinyllm-countries", help="Hub model names are NAME/PREFIX-base etc.")
     args = ap.parse_args()
 
     if args.hf_user:
-        paths = {n: f"{args.hf_user}/tinyllm-{n}" for n in ("base", "closed", "open")}
+        paths = {n: f"{args.hf_user}/{args.prefix}-{n}" for n in ("base", "closed", "open")}
     else:
         paths = {n: os.path.join(args.local, n) for n in ("base", "closed", "open")
                  if os.path.isdir(os.path.join(args.local, n))}
