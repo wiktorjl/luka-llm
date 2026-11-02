@@ -43,6 +43,8 @@ def main():
     ap.add_argument("--batch", type=int, default=None, help="sequences per step (default 64 pretrain, 32 fine-tune)")
     ap.add_argument("--grad-accum", type=int, default=1, help="steps to accumulate before an update (16 GB Mac: --batch 16 --grad-accum 4)")
     ap.add_argument("--max-steps", type=int, default=-1, help="stop early, e.g. 2000 for a shorter pretrain")
+    ap.add_argument("--epochs", type=float, default=None, help="passes over the data (default 1 pretrain, 4 fine-tune)")
+    ap.add_argument("--lr", type=float, default=None, help="learning rate (default 1e-3 pretrain, 1e-4 fine-tune)")
     ap.add_argument("--prefix", default="tinyllm-countries", help="name prefix for data repos, models and out/ folder")
     ap.add_argument("--trackio-space", help="host live loss curves in this Hugging Face Space, e.g. NAME/tinyllm-runs")
     args = ap.parse_args()
@@ -80,6 +82,10 @@ def main():
         stage = dict(learning_rate=1e-4, lr_scheduler_type="constant",  # gentle: adjust behavior, keep knowledge
                      num_train_epochs=4, eval_steps=50, save_steps=10_000)
         batch = args.batch or 32
+    if args.epochs is not None:
+        stage["num_train_epochs"] = args.epochs
+    if args.lr is not None:
+        stage["learning_rate"] = args.lr
 
     print(f"model: {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M parameters | "
           f"train rows: {len(train):,} | eval rows: {len(evalset):,}")
