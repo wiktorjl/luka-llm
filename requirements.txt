@@ -1,0 +1,9 @@
+torch
+transformers>=5
+trl>=1.16
+datasets>=4
+tokenizers
+huggingface_hub
+ftfy
+trackio
+gradio
